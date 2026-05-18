@@ -1709,10 +1709,10 @@ function addResDocs(inp){
 function renderResources(){
   renderResNotes();renderResDocs();
 }
+
 function renderResNotes(){
   const el=document.getElementById('notesTimeline');if(!el)return;
   el.innerHTML='';
-  // Collect daily notes from all 7 days
   const daily=[];
   for(let i=0;i<7;i++){
     const s=allSt[i]||{};const d=new Date();d.setDate(d.getDate()+(i-TODAY));
@@ -1720,42 +1720,91 @@ function renderResNotes(){
       daily.push({day:DAYS_F[i],date:d.toLocaleDateString('en-SG',{day:'numeric',month:'short'}),text:s.note,pct:getDayPct(i),photos:s.food_photos||[]});
     }
   }
-  // Manual notes
   const all=[...resSt.notes.map(n=>({...n,isManual:true})),...daily.map(n=>({...n,isDaily:true}))];
   if(!all.length){el.innerHTML='<div class="ne-empty">No notes yet. Add one above or write in Today\'s Note.</div>';return;}
-  all.forEach(n=>{
+  all.forEach((n,idx)=>{
     const div=document.createElement('div');div.className='note-entry';
     div.innerHTML=`
       <div class="ne-meta">
         <span class="ne-day">${n.isManual?'📝 Note':`📅 ${n.day}`}</span>
         <span class="ne-date">${n.isManual?new Date(n.id).toLocaleDateString('en-SG',{day:'numeric',month:'short'}):n.date}</span>
         ${n.pct!==undefined?`<span class="ne-score">${n.pct}%</span>`:''}
+        ${n.isManual?`<button onclick="delResNote(${n.id})" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;transition:color 0.15s" title="Delete note">🗑</button>`:''}
       </div>
       <div class="ne-text">${n.text}</div>
-      ${(n.photos&&n.photos.length)?`<div class="ne-photos">${n.photos.map(s=>`<img src="${s}" onclick="openImg('${s}')">`).join('')}</div>`:''}
+      ${(n.photos&&n.photos.length)?`<div class="ne-photos">${n.photos.map(s=>`<img src="${s}" onclick="openLightbox('${s}')" style="cursor:zoom-in">`).join('')}</div>`:''}
     `;
     el.appendChild(div);
   });
 }
+
+function delResNote(id){
+  resSt.notes=resSt.notes.filter(n=>n.id!==id);
+  saveRes();renderResNotes();
+}
+
 function renderResDocs(){
   const el=document.getElementById('docsList');if(!el)return;
   el.innerHTML='';
   if(!resSt.docs.length){el.innerHTML='<div style="font-size:13px;color:var(--muted);font-style:italic">No documents yet.</div>';return;}
   resSt.docs.forEach((doc,i)=>{
     const ext=doc.name.split('.').pop().toLowerCase();
-    const icon=ext==='pdf'?'📄':['xls','xlsx','csv'].includes(ext)?'📊':['doc','docx'].includes(ext)?'📝':['png','jpg','jpeg'].includes(ext)?'🖼':'📎';
+    const isImg=['png','jpg','jpeg','gif','webp'].includes(ext);
+    const icon=ext==='pdf'?'📄':['xls','xlsx','csv'].includes(ext)?'📊':['doc','docx'].includes(ext)?'📝':isImg?'🖼':'📎';
     const size=doc.size<1024?doc.size+'B':doc.size<1048576?Math.round(doc.size/1024)+'KB':Math.round(doc.size/1048576*10)/10+'MB';
     const div=document.createElement('div');div.className='doc-item';
-    div.innerHTML=`<span class="doc-icon">${icon}</span><span class="doc-name">${doc.name}</span><span class="doc-meta">${size}</span>
-      <a href="${doc.data}" download="${doc.name}" style="font-size:13px;color:var(--muted);padding:2px 6px;text-decoration:none">⬇</a>
-      <button class="doc-del" onclick="delDoc(${i})">✕</button>`;
+    // For images: show thumbnail + open lightbox on click
+    if(isImg){
+      div.innerHTML=`
+        <div style="margin-bottom:8px;cursor:zoom-in" onclick="openLightbox('${doc.data}')">
+          <img src="${doc.data}" style="width:100%;max-height:180px;object-fit:cover;border-radius:var(--rs);border:1px solid var(--border)">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="doc-icon">${icon}</span>
+          <span class="doc-name" style="flex:1">${doc.name}</span>
+          <span class="doc-meta">${size}</span>
+          <button onclick="openLightbox('${doc.data}')" style="font-size:13px;color:var(--muted);padding:2px 6px;background:none;border:1px solid var(--border2);border-radius:4px;cursor:pointer" title="View full size">🔍</button>
+          <a href="${doc.data}" download="${doc.name}" style="font-size:13px;color:var(--muted);padding:2px 6px;text-decoration:none;border:1px solid var(--border2);border-radius:4px" title="Download">⬇</a>
+          <button class="doc-del" onclick="delDoc(${i})">✕</button>
+        </div>`;
+    } else {
+      div.innerHTML=`
+        <span class="doc-icon">${icon}</span>
+        <span class="doc-name">${doc.name}</span>
+        <span class="doc-meta">${size}</span>
+        <a href="${doc.data}" download="${doc.name}" style="font-size:13px;color:var(--muted);padding:2px 6px;text-decoration:none" title="Download">⬇</a>
+        <button class="doc-del" onclick="delDoc(${i})">✕</button>`;
+    }
     el.appendChild(div);
   });
 }
 function delDoc(i){resSt.docs.splice(i,1);saveRes();renderResDocs();}
 
-// ── MISC ──
+// ── LIGHTBOX ──
+function openLightbox(src){
+  let lb = document.getElementById('lightbox');
+  if(!lb){
+    lb = document.createElement('div');
+    lb.id = 'lightbox';
+    lb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px';
+    lb.innerHTML = `<img id="lbImg" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.6)">
+      <button onclick="closeLightbox()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:24px;width:40px;height:40px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">×</button>`;
+    lb.addEventListener('click', e => { if(e.target===lb) closeLightbox(); });
+    document.body.appendChild(lb);
+  }
+  document.getElementById('lbImg').src = src;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox(){
+  const lb = document.getElementById('lightbox');
+  if(lb) lb.style.display = 'none';
+  document.body.style.overflow = '';
+}
+// Also update openImg to use lightbox
+function openImg(src){ openLightbox(src); }
 function togBlk(hd){hd.closest('.tblock').classList.toggle('coll');}
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeLightbox(); });
 function scrollToNow(){const c=document.querySelector('.tblock.cur');if(c)c.scrollIntoView({behavior:'smooth',block:'start'});}
 function tickClk(){const t=new Date();document.getElementById('clk').textContent=t.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit',hour12:false});}
 function restoreInputs(){
