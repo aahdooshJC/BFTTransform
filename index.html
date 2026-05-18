@@ -2439,31 +2439,29 @@ function mobileNav(v){
 function buildMobileDayStrip(){
   const strip = document.getElementById('mobileDayStrip'); if(!strip) return;
   strip.innerHTML = '';
-  const todayDate = new Date();
-  // Build Mon–Sun of current week
-  const weekStart = new Date(todayDate);
-  weekStart.setDate(todayDate.getDate() - ((todayDate.getDay()+6)%7)); // Monday
-  for(let i=0;i<7;i++){
-    const d = new Date(weekStart); d.setDate(weekStart.getDate() + i);
-    const dayIdx = (d.getDay()+6)%7; // 0=Mon…6=Sun mapped to allSt index
-    const isToday = d.toDateString() === todayDate.toDateString();
+  // Build the 7 days of the current week (Sun–Sat) matching allSt[0..6]
+  // allSt index = JS getDay() value: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+  // Show Mon–Sun order visually, but map correctly to allSt index
+  const order = [1,2,3,4,5,6,0]; // Mon,Tue,Wed,Thu,Fri,Sat,Sun
+  const labels = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+  order.forEach((dayIdx, i) => {
+    // Get the actual calendar date for this day index
+    const d = new Date();
+    d.setDate(d.getDate() + (dayIdx - TODAY));
+    const isToday = dayIdx === TODAY;
     const isActive = dayIdx === vDay;
     const btn = document.createElement('button');
-    btn.className = 'mds-btn' + (isActive?' active':'') + (isToday?' today-marker':'');
-    btn.innerHTML = `<span class="mds-day">${['MON','TUE','WED','THU','FRI','SAT','SUN'][i]}</span><span class="mds-num">${d.getDate()}</span>`;
-    btn.onclick = (()=>{
-      const idx = dayIdx;
-      return ()=>{
-        vDay = idx;
-        renderScheduleView();
-        buildMobileDayStrip();
-        // Switch to schedule view on mobile when day tapped
-        mobileNav('schedule');
-        document.getElementById('mainArea').scrollTop = 0;
-      };
-    })();
+    btn.className = 'mds-btn' + (isActive ? ' active' : '') + (isToday ? ' today-marker' : '');
+    btn.innerHTML = `<span class="mds-day">${labels[i]}</span><span class="mds-num">${d.getDate()}</span>`;
+    btn.onclick = () => {
+      vDay = dayIdx;
+      renderScheduleView();
+      buildMobileDayStrip();
+      mobileNav('schedule');
+      document.getElementById('mainArea').scrollTop = 0;
+    };
     strip.appendChild(btn);
-  }
+  });
 }
 
 window.addEventListener('resize',()=>drawChart(cvView));
