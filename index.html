@@ -2005,7 +2005,8 @@ function saveEntryAsFav(i){
   saveAsFavourite(e.meal_name||'Meal', e.calories||0, e.protein_g||0, e.carbs_g||0, e.fat_g||0);
   renderFoodAiLog(); // re-render to show ⭐ filled
 }
-  // Re-open manual entry for an existing log entry
+
+function editLogEntry(uid){
   const key = `t8w_food_${new Date().toDateString()}`;
   let log = []; try { log = JSON.parse(localStorage.getItem(key)) || []; } catch(e){}
   const entry = log.find(e => e.uid === uid);
